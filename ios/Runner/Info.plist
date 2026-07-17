@@ -45,5 +45,9 @@
 	<true/>
 	<key>UIApplicationSupportsIndirectInputEvents</key>
 	<true/>
+	<key>NSCameraUsageDescription</key>
+	<string>用于拍摄衣物照片，记录到衣橱中。</string>
+	<key>NSPhotoLibraryUsageDescription</key>
+	<string>用于从相册选择衣物照片，记录到衣橱中。</string>
 </dict>
 </plist>
