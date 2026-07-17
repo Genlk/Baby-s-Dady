@@ -4,26 +4,50 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:baby_s_dady/main.dart';
 
 void main() {
-  testWidgets('Logging a feeding event updates the counter and list',
+  testWidgets('Home page shows the two entry buttons',
       (WidgetTester tester) async {
     await tester.pumpWidget(const BabyCareApp());
 
-    // Initially the empty state is shown and the feeding stat is 0.
-    expect(find.byKey(const Key('empty-state')), findsOneWidget);
-    expect(
-      find.descendant(
-        of: find.byKey(const Key('stat-feeding')),
-        matching: find.text('0'),
-      ),
-      findsOneWidget,
-    );
+    expect(find.text('老婆的衣橱'), findsOneWidget);
+    expect(find.text('宝宝的记录'), findsOneWidget);
+    expect(find.byKey(const Key('btn-wardrobe')), findsOneWidget);
+    expect(find.byKey(const Key('btn-baby-record')), findsOneWidget);
+  });
 
-    // Tap the "Feeding" action button.
+  testWidgets('Wardrobe: tapping the first button opens it and can add an item',
+      (WidgetTester tester) async {
+    await tester.pumpWidget(const BabyCareApp());
+
+    await tester.tap(find.byKey(const Key('btn-wardrobe')));
+    await tester.pumpAndSettle();
+
+    // Wardrobe opens in its empty state.
+    expect(find.byKey(const Key('wardrobe-empty')), findsOneWidget);
+
+    // Add a clothing item.
+    await tester.tap(find.byKey(const Key('fab-add-clothing')));
+    await tester.pumpAndSettle();
+    await tester.enterText(
+        find.byKey(const Key('field-clothing-name')), '白色连衣裙');
+    await tester.tap(find.byKey(const Key('dialog-save')));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('wardrobe-list')), findsOneWidget);
+    expect(find.text('白色连衣裙'), findsOneWidget);
+  });
+
+  testWidgets('Baby record: second button opens tracker and logs an event',
+      (WidgetTester tester) async {
+    await tester.pumpWidget(const BabyCareApp());
+
+    await tester.tap(find.byKey(const Key('btn-baby-record')));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('empty-state')), findsOneWidget);
+
     await tester.tap(find.byKey(const Key('add-feeding')));
     await tester.pump();
 
-    // The list now has an entry and the feeding stat shows 1.
-    expect(find.byKey(const Key('empty-state')), findsNothing);
     expect(find.byKey(const Key('event-list')), findsOneWidget);
     expect(
       find.descendant(
