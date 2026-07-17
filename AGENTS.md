@@ -16,6 +16,11 @@ A cross-platform mobile app built with **Flutter** (single Dart codebase → And
 - Build Android APK: `flutter build apk --debug` → `build/app/outputs/flutter-apk/app-debug.apk`
 - Run on web (for headless demo/dev): `flutter run -d web-server --web-port <port>` then open in Chrome.
 
+### App feature notes
+- 老婆的衣橱 (`lib/wardrobe_page.dart`) fetches **live weather** from Open-Meteo (`lib/weather.dart`, no API key) on entering the page, and recommends wardrobe items whose season matches the current temperature (>=25°C→夏, 15-24→春秋, <15→冬, plus 四季). This needs network egress; if the VM has no egress to `*.open-meteo.com` the card shows a "天气获取失败" fallback. Tests inject a fake `WeatherService` to stay offline/deterministic.
+- Photo capture uses `image_picker` (camera/gallery). The native picker cannot be automated in headless Chrome, so demo the non-photo path; camera/gallery work on real devices. iOS requires `NSCameraUsageDescription` / `NSPhotoLibraryUsageDescription` (already in `ios/Runner/Info.plist`).
+- All data is in-memory only (no persistence yet); state resets on app restart.
+
 ### Non-obvious caveats
 - **iOS cannot be compiled on this Linux VM.** `flutter build ios` / `ipa` requires macOS + Xcode. The `ios/` Runner project is fully scaffolded and will build on a Mac; on Linux only Android/Web are buildable. This is an Apple platform restriction, not a project bug.
 - The first `flutter build apk` triggers a large one-time Gradle + Android NDK/CMake download (several minutes). Subsequent builds are fast. These downloads are cached in the VM snapshot.
