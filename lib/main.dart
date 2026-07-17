@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'baby_record_page.dart';
+import 'debug_page.dart';
 import 'wardrobe_page.dart';
 
 void main() {
@@ -34,6 +35,16 @@ class HomePage extends StatelessWidget {
       appBar: AppBar(
         title: const Text("Baby's Dady"),
         centerTitle: true,
+        actions: <Widget>[
+          IconButton(
+            key: const Key('btn-debug'),
+            tooltip: '调试页面',
+            icon: const Icon(Icons.bug_report),
+            onPressed: () => Navigator.of(context).push(
+              MaterialPageRoute<void>(builder: (_) => const DebugPage()),
+            ),
+          ),
+        ],
       ),
       body: Center(
         child: Padding(

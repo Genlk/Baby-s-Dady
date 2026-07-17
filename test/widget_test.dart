@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:baby_s_dady/debug_page.dart';
 import 'package:baby_s_dady/main.dart';
 import 'package:baby_s_dady/wardrobe_page.dart';
 import 'package:baby_s_dady/weather.dart';
@@ -57,6 +58,39 @@ void main() {
     expect(find.byKey(const Key('wardrobe-list')), findsOneWidget);
     expect(find.text('碎花连衣裙'), findsWidgets);
     expect(find.byKey(const Key('recommend-list')), findsOneWidget);
+  });
+
+  testWidgets('Debug page: opens from home and tests the weather API',
+      (WidgetTester tester) async {
+    // 入口：首页右上角的调试按钮存在。
+    await tester.pumpWidget(const BabyCareApp());
+    expect(find.byKey(const Key('btn-debug')), findsOneWidget);
+
+    // 调大测试视口，保证长页面（含底部日志区）完整布局。
+    tester.view.physicalSize = const Size(1200, 3000);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    // 直接用注入 fake 的调试页验证天气调试工具。
+    final fake = FakeWeatherService(
+      const WeatherInfo(city: '上海', temperature: 5.0, weatherCode: 71),
+    );
+    await tester.pumpWidget(MaterialApp(home: DebugPage(weatherService: fake)));
+    await tester.pumpAndSettle();
+
+    expect(find.byKey(const Key('debug-env-card')), findsOneWidget);
+    expect(find.byKey(const Key('debug-log-empty')), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('debug-fetch-btn')));
+    await tester.pumpAndSettle();
+
+    // 返回结果与计算结果正确展示（5°C 下雪 → 冬季）。
+    expect(find.byKey(const Key('debug-weather-result')), findsOneWidget);
+    expect(find.textContaining('下雪'), findsWidgets);
+    expect(find.text('冬'), findsWidgets);
+    // 日志记录了本次请求。
+    expect(find.byKey(const Key('debug-log-list')), findsOneWidget);
   });
 
   testWidgets('Baby record daily tab logs a care event',
