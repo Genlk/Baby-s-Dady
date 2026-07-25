@@ -19,7 +19,11 @@ A cross-platform mobile app built with **Flutter** (single Dart codebase → And
 ### App feature notes
 - 老婆的衣橱 (`lib/wardrobe_page.dart`) fetches **live weather** from Open-Meteo (`lib/weather.dart`, no API key) on entering the page, and recommends wardrobe items whose season matches the current temperature (>=25°C→夏, 15-24→春秋, <15→冬, plus 四季). This needs network egress; if the VM has no egress to `*.open-meteo.com` the card shows a "天气获取失败" fallback. Tests inject a fake `WeatherService` to stay offline/deterministic.
 - Photo capture uses `image_picker` (camera/gallery). The native picker cannot be automated in headless Chrome, so demo the non-photo path; camera/gallery work on real devices. iOS requires `NSCameraUsageDescription` / `NSPhotoLibraryUsageDescription` (already in `ios/Runner/Info.plist`).
-- All data is in-memory only (no persistence yet); state resets on app restart.
+- **Local persistence + Wi‑Fi cloud sync** live under `lib/storage/`:
+  - `LocalStore` writes `app_snapshot.json` + `photos/` via `FsBridge` (real disk on iOS/Android, in-memory on Web).
+  - `SyncService` uses `connectivity_plus` and only uploads when Wi‑Fi/ethernet is available.
+  - Default cloud target is `MirrorCloudStorage` (`baby_s_dady_cloud_mirror/`); optional HTTP endpoint via Sync Settings page (`HttpCloudStorage` PUT API).
+  - UI: home `SyncStatusBar` + cloud settings page. Tests use `FakeNetworkProbe` / `FakeCloudStorage` / memory `FsBridge` (see `test/sync_service_test.dart`).
 
 ### Non-obvious caveats
 - **iOS cannot be compiled on this Linux VM.** `flutter build ios` / `ipa` requires macOS + Xcode. The `ios/` Runner project is fully scaffolded and will build on a Mac; on Linux only Android/Web are buildable. This is an Apple platform restriction, not a project bug.

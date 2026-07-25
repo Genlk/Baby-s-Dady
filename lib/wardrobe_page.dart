@@ -3,31 +3,20 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 
+import 'storage/app_models.dart';
+import 'storage/app_scope.dart';
+import 'storage/local_store.dart';
 import 'weather.dart';
 
-class ClothingItem {
-  const ClothingItem({
-    required this.name,
-    required this.category,
-    required this.season,
-    this.note,
-    this.photo,
-  });
-
-  final String name;
-  final String category;
-  final String season; // 四季 / 春秋 / 夏 / 冬
-  final String? note;
-  final Uint8List? photo;
-}
+export 'storage/app_models.dart' show ClothingItem;
 
 /// 老婆的衣橱：按类型统计存放、可拍照备注，并根据当地天气推荐穿搭。
 class WardrobePage extends StatefulWidget {
-  const WardrobePage({super.key, this.weatherService, this.defaultCity = '北京'});
+  const WardrobePage({super.key, this.weatherService, this.defaultCity});
 
   /// 允许在测试中注入 fake，默认使用真实的 Open-Meteo 服务。
   final WeatherService? weatherService;
-  final String defaultCity;
+  final String? defaultCity;
 
   @override
   State<WardrobePage> createState() => _WardrobePageState();
@@ -47,20 +36,38 @@ class _WardrobePageState extends State<WardrobePage> {
   late final WeatherService _weather = widget.weatherService ?? WeatherService();
   final ImagePicker _picker = ImagePicker();
 
-  final List<ClothingItem> _items = <ClothingItem>[];
+  LocalStore? _store;
   String _filter = '全部';
-  String _city = '北京';
+  late String _city;
 
   WeatherInfo? _weatherInfo;
   bool _weatherLoading = false;
   bool _weatherFailed = false;
 
+  List<ClothingItem> get _items =>
+      _store?.snapshot.wardrobeItems ?? const <ClothingItem>[];
+
   @override
-  void initState() {
-    super.initState();
-    _city = widget.defaultCity;
-    // 每次进入衣橱都会拉取当地天气。
-    _loadWeather();
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final store = AppScope.of(context).store;
+    if (!identical(_store, store)) {
+      _store?.removeListener(_onStore);
+      _store = store;
+      _store!.addListener(_onStore);
+      _city = widget.defaultCity ?? store.snapshot.wardrobeCity;
+      _loadWeather();
+    }
+  }
+
+  @override
+  void dispose() {
+    _store?.removeListener(_onStore);
+    super.dispose();
+  }
+
+  void _onStore() {
+    if (mounted) setState(() {});
   }
 
   Future<void> _loadWeather() async {
@@ -87,7 +94,8 @@ class _WardrobePageState extends State<WardrobePage> {
           key: const Key('field-city'),
           controller: controller,
           autofocus: true,
-          decoration: const InputDecoration(labelText: '城市名', hintText: '例如：上海'),
+          decoration:
+              const InputDecoration(labelText: '城市名', hintText: '例如：上海'),
         ),
         actions: <Widget>[
           TextButton(
@@ -104,11 +112,15 @@ class _WardrobePageState extends State<WardrobePage> {
     );
     if (city != null && city.isNotEmpty) {
       setState(() => _city = city);
+      await _store?.setWardrobeCity(city);
       await _loadWeather();
     }
   }
 
   Future<void> _addItem() async {
+    final store = _store;
+    if (store == null) return;
+
     final nameC = TextEditingController();
     final noteC = TextEditingController();
     String category = categories.first;
@@ -229,6 +241,7 @@ class _WardrobePageState extends State<WardrobePage> {
                     final note = noteC.text.trim();
                     Navigator.of(context).pop(
                       ClothingItem(
+                        id: store.newId(),
                         name: name,
                         category: category,
                         season: season,
@@ -247,7 +260,7 @@ class _WardrobePageState extends State<WardrobePage> {
     );
 
     if (result != null) {
-      setState(() => _items.insert(0, result));
+      await store.upsertClothing(result);
     }
   }
 

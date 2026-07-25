@@ -1,10 +1,30 @@
 import 'package:flutter/material.dart';
 
+import 'storage/app_models.dart';
+import 'storage/app_scope.dart';
+import 'storage/local_store.dart';
+
+export 'storage/app_models.dart'
+    show CareEvent, CareType, CareTypeInfo, GrowthEntry, Milestone;
+
 String _two(int n) => n.toString().padLeft(2, '0');
 
-String formatTime(DateTime t) => '${_two(t.hour)}:${_two(t.minute)}:${_two(t.second)}';
+String formatTime(DateTime t) =>
+    '${_two(t.hour)}:${_two(t.minute)}:${_two(t.second)}';
 
-String formatDate(DateTime t) => '${t.year}-${_two(t.month)}-${_two(t.day)}';
+String formatDate(DateTime t) =>
+    '${t.year}-${_two(t.month)}-${_two(t.day)}';
+
+IconData careTypeIcon(CareType type) {
+  switch (type) {
+    case CareType.feeding:
+      return Icons.local_drink;
+    case CareType.diaper:
+      return Icons.baby_changing_station;
+    case CareType.sleep:
+      return Icons.bedtime;
+  }
+}
 
 /// 宝宝的记录：日常 / 里程碑 / 成长 三个标签页。
 class BabyRecordPage extends StatelessWidget {
@@ -49,38 +69,6 @@ class BabyRecordPage extends StatelessWidget {
 // 日常 (Daily care) —— 喂奶 / 换尿布 / 睡觉
 // ===========================================================================
 
-enum CareType { feeding, diaper, sleep }
-
-extension CareTypeInfo on CareType {
-  String get label {
-    switch (this) {
-      case CareType.feeding:
-        return '喂奶';
-      case CareType.diaper:
-        return '换尿布';
-      case CareType.sleep:
-        return '睡觉';
-    }
-  }
-
-  IconData get icon {
-    switch (this) {
-      case CareType.feeding:
-        return Icons.local_drink;
-      case CareType.diaper:
-        return Icons.baby_changing_station;
-      case CareType.sleep:
-        return Icons.bedtime;
-    }
-  }
-}
-
-class CareEvent {
-  const CareEvent(this.type, this.time);
-  final CareType type;
-  final DateTime time;
-}
-
 class DailyCareTab extends StatefulWidget {
   const DailyCareTab({super.key});
 
@@ -90,13 +78,41 @@ class DailyCareTab extends StatefulWidget {
 
 class _DailyCareTabState extends State<DailyCareTab>
     with AutomaticKeepAliveClientMixin {
-  final List<CareEvent> _events = <CareEvent>[];
+  LocalStore? _store;
 
   @override
   bool get wantKeepAlive => true;
 
-  void _logEvent(CareType type) {
-    setState(() => _events.insert(0, CareEvent(type, DateTime.now())));
+  List<CareEvent> get _events =>
+      _store?.snapshot.careEvents ?? const <CareEvent>[];
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final store = AppScope.of(context).store;
+    if (!identical(_store, store)) {
+      _store?.removeListener(_onStore);
+      _store = store;
+      _store!.addListener(_onStore);
+    }
+  }
+
+  @override
+  void dispose() {
+    _store?.removeListener(_onStore);
+    super.dispose();
+  }
+
+  void _onStore() {
+    if (mounted) setState(() {});
+  }
+
+  Future<void> _logEvent(CareType type) async {
+    final store = _store;
+    if (store == null) return;
+    await store.addCareEvent(
+      CareEvent(id: store.newId(), type: type, time: DateTime.now()),
+    );
   }
 
   @override
@@ -146,7 +162,7 @@ class _DailyCareTabState extends State<DailyCareTab>
                     child: FilledButton.tonalIcon(
                       key: Key('add-${type.name}'),
                       onPressed: () => _logEvent(type),
-                      icon: Icon(type.icon, size: 18),
+                      icon: Icon(careTypeIcon(type), size: 18),
                       label: Text(type.label),
                     ),
                   ),
@@ -167,7 +183,7 @@ class _DailyCareTabState extends State<DailyCareTab>
                   itemBuilder: (context, index) {
                     final e = _events[index];
                     return ListTile(
-                      leading: Icon(e.type.icon),
+                      leading: Icon(careTypeIcon(e.type)),
                       title: Text(e.type.label),
                       trailing: Text(formatTime(e.time)),
                     );
@@ -212,14 +228,6 @@ const Map<String, List<String>> kMilestonePresets = <String, List<String>>{
   '社交认知': <String>['对视微笑', '认生', '拍手/再见', '模仿动作'],
 };
 
-class Milestone {
-  const Milestone(this.title, this.category, this.date, {this.note});
-  final String title;
-  final String category;
-  final DateTime date;
-  final String? note;
-}
-
 class MilestoneTab extends StatefulWidget {
   const MilestoneTab({super.key});
 
@@ -229,23 +237,52 @@ class MilestoneTab extends StatefulWidget {
 
 class _MilestoneTabState extends State<MilestoneTab>
     with AutomaticKeepAliveClientMixin {
-  final List<Milestone> _records = <Milestone>[];
+  LocalStore? _store;
 
   @override
   bool get wantKeepAlive => true;
 
-  void _add(Milestone m) {
-    setState(() {
-      _records.insert(0, m);
-    });
+  List<Milestone> get _records =>
+      _store?.snapshot.milestones ?? const <Milestone>[];
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final store = AppScope.of(context).store;
+    if (!identical(_store, store)) {
+      _store?.removeListener(_onStore);
+      _store = store;
+      _store!.addListener(_onStore);
+    }
+  }
+
+  @override
+  void dispose() {
+    _store?.removeListener(_onStore);
+    super.dispose();
+  }
+
+  void _onStore() {
+    if (mounted) setState(() {});
+  }
+
+  Future<void> _add(Milestone m) async {
+    await _store?.addMilestone(m);
+    if (!mounted) return;
     ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()
       ..showSnackBar(
-        SnackBar(content: Text('已记录里程碑：${m.title}'), duration: const Duration(seconds: 1)),
+        SnackBar(
+          content: Text('已记录里程碑：${m.title}'),
+          duration: const Duration(seconds: 1),
+        ),
       );
   }
 
   Future<void> _addCustom() async {
+    final store = _store;
+    if (store == null) return;
+
     final controller = TextEditingController();
     final noteController = TextEditingController();
     String category = kMilestonePresets.keys.first;
@@ -309,9 +346,10 @@ class _MilestoneTabState extends State<MilestoneTab>
                     final note = noteController.text.trim();
                     Navigator.of(context).pop(
                       Milestone(
-                        title,
-                        category,
-                        DateTime.now(),
+                        id: store.newId(),
+                        title: title,
+                        category: category,
+                        date: DateTime.now(),
                         note: note.isEmpty ? null : note,
                       ),
                     );
@@ -325,7 +363,7 @@ class _MilestoneTabState extends State<MilestoneTab>
       },
     );
 
-    if (result != null) _add(result);
+    if (result != null) await _add(result);
   }
 
   @override
@@ -343,7 +381,8 @@ class _MilestoneTabState extends State<MilestoneTab>
         children: <Widget>[
           const Padding(
             padding: EdgeInsets.fromLTRB(16, 16, 16, 4),
-            child: Text('点一下快速记录关键时刻', style: TextStyle(fontWeight: FontWeight.bold)),
+            child: Text('点一下快速记录关键时刻',
+                style: TextStyle(fontWeight: FontWeight.bold)),
           ),
           SizedBox(
             height: 148,
@@ -369,7 +408,12 @@ class _MilestoneTabState extends State<MilestoneTab>
                                 key: Key('milestone-chip-$name'),
                                 label: Text(name),
                                 onPressed: () => _add(
-                                  Milestone(name, entry.key, DateTime.now()),
+                                  Milestone(
+                                    id: _store?.newId() ?? name,
+                                    title: name,
+                                    category: entry.key,
+                                    date: DateTime.now(),
+                                  ),
                                 ),
                               ),
                           ],
@@ -415,14 +459,6 @@ class _MilestoneTabState extends State<MilestoneTab>
 // 成长 (Growth) —— 身高 / 体重 / 头围
 // ===========================================================================
 
-class GrowthEntry {
-  const GrowthEntry(this.date, this.heightCm, this.weightKg, this.headCm);
-  final DateTime date;
-  final double? heightCm;
-  final double? weightKg;
-  final double? headCm;
-}
-
 class GrowthTab extends StatefulWidget {
   const GrowthTab({super.key});
 
@@ -432,12 +468,39 @@ class GrowthTab extends StatefulWidget {
 
 class _GrowthTabState extends State<GrowthTab>
     with AutomaticKeepAliveClientMixin {
-  final List<GrowthEntry> _entries = <GrowthEntry>[];
+  LocalStore? _store;
 
   @override
   bool get wantKeepAlive => true;
 
+  List<GrowthEntry> get _entries =>
+      _store?.snapshot.growthEntries ?? const <GrowthEntry>[];
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final store = AppScope.of(context).store;
+    if (!identical(_store, store)) {
+      _store?.removeListener(_onStore);
+      _store = store;
+      _store!.addListener(_onStore);
+    }
+  }
+
+  @override
+  void dispose() {
+    _store?.removeListener(_onStore);
+    super.dispose();
+  }
+
+  void _onStore() {
+    if (mounted) setState(() {});
+  }
+
   Future<void> _addEntry() async {
+    final store = _store;
+    if (store == null) return;
+
     final heightC = TextEditingController();
     final weightC = TextEditingController();
     final headC = TextEditingController();
@@ -488,7 +551,13 @@ class _GrowthTabState extends State<GrowthTab>
                 final hc = double.tryParse(headC.text.trim());
                 if (h == null && w == null && hc == null) return;
                 Navigator.of(context).pop(
-                  GrowthEntry(DateTime.now(), h, w, hc),
+                  GrowthEntry(
+                    id: store.newId(),
+                    date: DateTime.now(),
+                    heightCm: h,
+                    weightKg: w,
+                    headCm: hc,
+                  ),
                 );
               },
               child: const Text('保存'),
@@ -499,7 +568,7 @@ class _GrowthTabState extends State<GrowthTab>
     );
 
     if (result != null) {
-      setState(() => _entries.insert(0, result));
+      await store.addGrowth(result);
     }
   }
 
