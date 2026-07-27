@@ -15,11 +15,38 @@
 | 疑似跌倒 | 躯干突然快速下降 |
 | 无人看护 | 画面中未检测到人体 |
 
+## 移动端 App（Android / iOS / 鸿蒙）
+
+支持以 App 模式发布到手机平台，详见 [docs/MOBILE.md](./docs/MOBILE.md)。
+
+```bash
+# 1. 启动分析服务器
+uvicorn api.server:app --host 0.0.0.0 --port 8000
+
+# 2. 运行 Flutter App
+cd mobile && flutter pub get && flutter run
+
+# 3. 打包发布
+flutter build apk --release      # Android APK
+flutter build appbundle --release # Google Play
+flutter build ios --release       # iOS（需 macOS）
+```
+
+```text
+baby-monitor/
+├── api/server.py       # FastAPI 后端（供手机 App 调用）
+├── mobile/             # Flutter 跨端 App
+├── harmonyos/          # 鸿蒙 ArkTS API 参考
+└── docs/MOBILE.md      # 完整发布指南
+```
+
 ## 项目结构
 
 ```text
 baby-monitor/
 ├── app.py                  # Gradio Web 界面
+├── api/server.py           # 移动端 API 服务
+├── mobile/                 # Flutter App（Android/iOS/鸿蒙）
 ├── config.py               # 全局配置与阈值
 ├── requirements.txt
 ├── models/

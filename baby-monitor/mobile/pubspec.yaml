@@ -1,0 +1,25 @@
+name: baby_monitor_app
+description: 宝宝智能监控 - 跨端移动应用（Android / iOS / 鸿蒙）
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: ^3.7.2
+
+dependencies:
+  flutter:
+    sdk: flutter
+  cupertino_icons: ^1.0.8
+  http: ^1.2.0
+  camera: ^0.11.0+2
+  image_picker: ^1.1.2
+  shared_preferences: ^2.3.3
+  provider: ^6.1.2
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^5.0.0
+
+flutter:
+  uses-material-design: true
