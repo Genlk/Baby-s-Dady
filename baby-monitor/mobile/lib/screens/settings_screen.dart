@@ -5,7 +5,8 @@ import '../services/api_service.dart';
 
 class SettingsScreen extends StatefulWidget {
   final VoidCallback onSaved;
-  const SettingsScreen({super.key, required this.onSaved});
+  final VoidCallback? onModeSwitch;
+  const SettingsScreen({super.key, required this.onSaved, this.onModeSwitch});
 
   @override
   State<SettingsScreen> createState() => _SettingsScreenState();
@@ -153,6 +154,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 _hintTile('真机（局域网）', 'http://<电脑IP>:8000'),
               ],
             ),
+          ),
+        ),
+        const SizedBox(height: 16),
+        Card(
+          child: ListTile(
+            leading: const Icon(Icons.swap_horiz, color: Color(0xFF6B9BD2)),
+            title: const Text('切换使用模式'),
+            subtitle: const Text('闲置手机监控端 / 家长端'),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: widget.onModeSwitch,
           ),
         ),
         const SizedBox(height: 16),

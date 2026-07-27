@@ -2,8 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../services/api_service.dart';
+import '../services/device_service.dart';
 import 'analyze_screen.dart';
+import 'mode_select_screen.dart';
 import 'monitor_screen.dart';
+import 'parent_dashboard_screen.dart';
 import 'settings_screen.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -33,9 +36,10 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     final pages = [
+      ParentDashboardScreen(),
       MonitorScreen(serverOk: _serverOk),
       const AnalyzeScreen(),
-      SettingsScreen(onSaved: _checkServer),
+      SettingsScreen(onSaved: _checkServer, onModeSwitch: _switchMode),
     ];
 
     return Scaffold(
@@ -68,11 +72,20 @@ class _HomeScreenState extends State<HomeScreen> {
         selectedIndex: _index,
         onDestinationSelected: (i) => setState(() => _index = i),
         destinations: const [
-          NavigationDestination(icon: Icon(Icons.videocam), label: '实时监控'),
+          NavigationDestination(icon: Icon(Icons.grid_view), label: '家中监控'),
+          NavigationDestination(icon: Icon(Icons.videocam), label: '本机拍摄'),
           NavigationDestination(icon: Icon(Icons.photo_library), label: '相册分析'),
           NavigationDestination(icon: Icon(Icons.settings), label: '设置'),
         ],
       ),
+    );
+  }
+
+  Future<void> _switchMode() async {
+    await context.read<DeviceService>().setAppMode('');
+    if (!mounted) return;
+    Navigator.of(context).pushReplacement(
+      MaterialPageRoute(builder: (_) => const ModeSelectScreen()),
     );
   }
 }

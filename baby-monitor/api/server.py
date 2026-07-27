@@ -26,6 +26,7 @@ _spec.loader.exec_module(_pipeline_mod)
 BabyMonitorPipeline = _pipeline_mod.BabyMonitorPipeline
 
 from config import BEHAVIOR_LABELS
+from api.device_store import CameraNodeState, store
 
 _pipeline: BabyMonitorPipeline | None = None
 
@@ -174,4 +175,96 @@ def analyze_frame(req: FrameRequest):
         alert_message=result["alert_message"],
         movement=result["movement"],
         torso_angle=result["torso_angle"],
+    )
+
+
+class CameraNodeReport(BaseModel):
+    device_id: str = Field(..., description="设备唯一 ID")
+    device_name: str = Field(default="卧室监控", description="房间名称，如「儿童房」")
+    image_b64: str = Field(..., description="当前帧 JPEG Base64")
+    timestamp: float = 0.0
+
+
+class CameraNodeStatus(BaseModel):
+    device_id: str
+    device_name: str
+    behavior: str
+    behavior_cn: str
+    confidence: float
+    alert: bool
+    alert_message: str
+    movement: float
+    torso_angle: float
+    online: bool
+    last_seen: float
+    annotated_image_b64: str | None = None
+
+
+@app.post("/api/v1/nodes/report", response_model=CameraNodeStatus)
+def report_from_camera_node(req: CameraNodeReport):
+    """
+    闲置手机（监控端）定时上报画面。
+    服务器分析后保存最新状态，供家长端手机查看。
+    """
+    try:
+        raw = base64.b64decode(req.image_b64)
+    except Exception:
+        return JSONResponse(status_code=400, content={"detail": "Base64 解码失败"})
+
+    arr = np.frombuffer(raw, np.uint8)
+    frame = cv2.imdecode(arr, cv2.IMREAD_COLOR)
+    if frame is None:
+        return JSONResponse(status_code=400, content={"detail": "无法解析图片"})
+
+    result = _pipeline.process_frame(frame, req.timestamp)
+
+    annotated_b64 = None
+    _, buf = cv2.imencode(".jpg", result["frame"], [cv2.IMWRITE_JPEG_QUALITY, 80])
+    annotated_b64 = base64.b64encode(buf).decode("utf-8")
+
+    state = CameraNodeState(
+        device_id=req.device_id,
+        device_name=req.device_name,
+        behavior=result["behavior"],
+        behavior_cn=result["behavior_cn"],
+        confidence=result["confidence"],
+        alert=result["alert"],
+        alert_message=result["alert_message"],
+        movement=result["movement"],
+        torso_angle=result["torso_angle"],
+        annotated_image_b64=annotated_b64,
+    )
+    store.upsert(state)
+    return _node_to_status(state)
+
+
+@app.get("/api/v1/nodes", response_model=list[CameraNodeStatus])
+def list_camera_nodes():
+    """家长端：获取家中所有监控节点（闲置手机）状态"""
+    return [_node_to_status(n) for n in store.list_all()]
+
+
+@app.get("/api/v1/nodes/{device_id}", response_model=CameraNodeStatus)
+def get_camera_node(device_id: str):
+    node = store.get(device_id)
+    if not node:
+        return JSONResponse(status_code=404, content={"detail": "监控节点不存在"})
+    return _node_to_status(node)
+
+
+def _node_to_status(node: CameraNodeState) -> CameraNodeStatus:
+    store._refresh_online(node)
+    return CameraNodeStatus(
+        device_id=node.device_id,
+        device_name=node.device_name,
+        behavior=node.behavior,
+        behavior_cn=node.behavior_cn,
+        confidence=node.confidence,
+        alert=node.alert,
+        alert_message=node.alert_message,
+        movement=node.movement,
+        torso_angle=node.torso_angle,
+        online=node.online,
+        last_seen=node.last_seen,
+        annotated_image_b64=node.annotated_image_b64,
     )

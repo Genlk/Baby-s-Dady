@@ -5,6 +5,7 @@ import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/analysis_result.dart';
+import '../models/camera_node.dart';
 
 class ApiService {
   static const _defaultBaseUrl = 'http://10.0.2.2:8000'; // Android 模拟器访问本机
@@ -100,5 +101,46 @@ class ApiService {
     return VideoSummary.fromJson(
       jsonDecode(resp.body) as Map<String, dynamic>,
     );
+  }
+
+  Future<CameraNodeStatus> reportFromNode({
+    required String deviceId,
+    required String deviceName,
+    required Uint8List jpegBytes,
+    double timestamp = 0,
+  }) async {
+    final resp = await http
+        .post(
+          Uri.parse('$_baseUrl/api/v1/nodes/report'),
+          headers: {'Content-Type': 'application/json'},
+          body: jsonEncode({
+            'device_id': deviceId,
+            'device_name': deviceName,
+            'image_b64': base64Encode(jpegBytes),
+            'timestamp': timestamp,
+          }),
+        )
+        .timeout(const Duration(seconds: 20));
+
+    if (resp.statusCode != 200) {
+      throw Exception('上报失败: ${resp.statusCode}');
+    }
+    return CameraNodeStatus.fromJson(
+      jsonDecode(resp.body) as Map<String, dynamic>,
+    );
+  }
+
+  Future<List<CameraNodeStatus>> listNodes() async {
+    final resp = await http
+        .get(Uri.parse('$_baseUrl/api/v1/nodes'))
+        .timeout(const Duration(seconds: 10));
+
+    if (resp.statusCode != 200) {
+      throw Exception('获取监控列表失败: ${resp.statusCode}');
+    }
+    final list = jsonDecode(resp.body) as List<dynamic>;
+    return list
+        .map((e) => CameraNodeStatus.fromJson(e as Map<String, dynamic>))
+        .toList();
   }
 }

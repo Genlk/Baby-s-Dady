@@ -1,14 +1,18 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-import 'screens/home_screen.dart';
+import 'app_bootstrap.dart';
 import 'services/api_service.dart';
+import 'services/device_service.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
   runApp(
-    Provider(
-      create: (_) => ApiService(),
+    MultiProvider(
+      providers: [
+        Provider(create: (_) => ApiService()),
+        Provider(create: (_) => DeviceService()),
+      ],
       child: const BabyMonitorApp(),
     ),
   );
@@ -33,7 +37,7 @@ class BabyMonitorApp extends StatelessWidget {
           elevation: 0,
         ),
       ),
-      home: const HomeScreen(),
+      home: const AppBootstrap(),
     );
   }
 }

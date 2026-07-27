@@ -19,6 +19,14 @@
 
 支持以 App 模式发布到手机平台，详见 [docs/MOBILE.md](./docs/MOBILE.md)。
 
+### 闲置手机改造监控（推荐）
+
+把家里旧手机变成固定摄像头，详见 **[docs/IDLE_PHONE.md](./docs/IDLE_PHONE.md)**。
+
+```text
+闲置手机（监控端）→ 家用服务器（AI 分析）→ 主力手机（家长端查看）
+```
+
 ```bash
 # 1. 启动分析服务器
 uvicorn api.server:app --host 0.0.0.0 --port 8000
